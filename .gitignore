@@ -73,4 +73,3 @@ backend/db.sqlite3
 *.media/
 backend/media/
 backend/static/
-frontend/
