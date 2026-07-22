@@ -6,6 +6,7 @@ import Link from "next/link";
 import api from "@/services/axios";
 import { useAlert } from "@/components/AlertModal";
 import { useRouter } from "next/navigation";
+import TemplateCard from "@/components/TemplateCard";
 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState([]);
@@ -39,63 +40,71 @@ export default function TemplatesPage() {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.15, delayChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 30, scale: 0.95 },
+    show: { opacity: 1, y: 0, scale: 1, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
+  };
+
   return (
     <div className="container py-5">
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-4 mb-5"
       >
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2 className="fw-bold" style={{ color: "#1e3c72" }}>Report Templates</h2>
-          <Link href="/NewTemplate" className="btn btn-primary shadow-sm rounded-pill px-4 text-decoration-none" style={{ background: "#2a5298", border: "none" }}>
-            + Create Template
-          </Link>
+        <div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-3"
+            style={{ background: "rgba(255,87,34,0.1)", border: "1px solid rgba(255,87,34,0.2)" }}
+          >
+            <div className="spinner-grow spinner-grow-sm" style={{ color: "var(--theme-accent)", width: "10px", height: "10px" }} role="status" />
+            <span style={{ color: "var(--theme-accent)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "1px" }}>LAYOUT ENGINE</span>
+          </motion.div>
+          <h2 className="fw-bolder mb-1" style={{ fontFamily: "var(--font-righteous)", background: "linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontSize: "2.5rem" }}>
+            Report Templates
+          </h2>
+          <p className="theme-text-muted mb-0" style={{ fontSize: "1.1rem" }}>Design the layout and content structure of your automated PDFs.</p>
         </div>
-
-        <p className="text-muted mb-4">Design the layout and content structure of your automated PDFs.</p>
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}>
+          <Link href="/NewTemplate" className="premium-cta-btn">
+            <i className="bi bi-plus-lg"></i> Create Template
+          </Link>
+        </motion.div>
+      </motion.div>
 
         {loading ? (
           <div className="text-center py-5">Loading templates...</div>
         ) : templates.length === 0 ? (
-          <div className="text-center py-5 card border-0 shadow-sm rounded-4">
-            <h5 className="text-muted mb-3">No templates designed yet.</h5>
-            <Link href="/NewTemplate" className="btn btn-outline-primary rounded-pill px-4">Create your first template</Link>
+          <div className="text-center py-5 theme-card">
+            <h5 className="theme-text-muted mb-3">No templates designed yet.</h5>
+            <Link href="/NewTemplate" className="premium-cta-btn d-inline-flex mx-auto">Create your first template</Link>
           </div>
         ) : (
-          <div className="row g-4">
+          <motion.div 
+            className="row g-4"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+          >
             {templates.map((tpl: any) => (
               <div key={tpl.id} className="col-md-6 col-lg-4">
-                <motion.div
-                  whileHover={{ y: -5 }}
-                  className="card border-0 shadow-sm rounded-4 h-100 p-4 text-center"
-                  style={{ background: "white" }}
-                >
-                  <div className="display-4 mb-3" style={{ color: "#4facfe" }}>
-                    {tpl.layout === 'Grid' ? '📊' : '📄'}
-                  </div>
-                  <h5 className="fw-bold mb-2" style={{ color: "#1e3c72" }}>{tpl.name}</h5>
-                  <p className="text-secondary small mb-4">
-                    Layout: <strong>{tpl.layout}</strong><br/>
-                    Header: {tpl.header_text || "None"}
-                  </p>
-                  <div className="mt-auto d-flex gap-2">
-                    <Link href={`/EditTemplate/${tpl.id}`} className="btn btn-sm btn-light w-50 fw-medium text-primary rounded-pill text-decoration-none">
-                      Edit
-                    </Link>
-                    <button 
-                      className="btn btn-sm btn-outline-danger w-50 fw-medium rounded-pill"
-                      onClick={(e) => handleDelete(e, tpl.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </motion.div>
+                <TemplateCard template={tpl} onDelete={handleDelete} variants={itemVariants} />
               </div>
             ))}
-          </div>
+          </motion.div>
         )}
-      </motion.div>
     </div>
   );
 }

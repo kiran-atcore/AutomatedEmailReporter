@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import api from "@/services/axios";
 import { useAlert } from "@/components/AlertModal";
+import SchedulerListCard from "@/components/SchedulerListCard";
 
 export default function SchedulerPage() {
   const [schedules, setSchedules] = useState([]);
@@ -39,79 +40,69 @@ export default function SchedulerPage() {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.15, delayChildren: 0.1 }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, x: -20 },
+    show: { opacity: 1, x: 0, transition: { type: "spring" as const, stiffness: 300, damping: 24 } }
+  };
+
   return (
     <div className="container py-5">
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-4 mb-5"
       >
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2 className="fw-bold" style={{ color: "#1e3c72" }}>Scheduler & Distribution</h2>
-          <Link href="/NewSchedule" className="btn btn-primary shadow-sm rounded-pill px-4 text-decoration-none" style={{ background: "#2a5298", border: "none" }}>
-            + Create Schedule
+        <div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2, type: "spring" }}
+            className="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-3"
+            style={{ background: "rgba(255,87,34,0.1)", border: "1px solid rgba(255,87,34,0.2)" }}
+          >
+            <div className="spinner-grow spinner-grow-sm" style={{ color: "var(--theme-accent)", width: "10px", height: "10px" }} role="status" />
+            <span style={{ color: "var(--theme-accent)", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "1px" }}>AUTOMATION HUB</span>
+          </motion.div>
+          <h2 className="fw-bolder mb-1" style={{ fontFamily: "var(--font-righteous)", background: "linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontSize: "2.5rem" }}>
+            Scheduler & Distribution
+          </h2>
+          <p className="theme-text-muted mb-0" style={{ fontSize: "1.1rem" }}>Manage when your reports run and who receives them.</p>
+        </div>
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }}>
+          <Link href="/NewSchedule" className="premium-cta-btn">
+            <i className="bi bi-plus-lg"></i> Create Schedule
           </Link>
-        </div>
-
-        <p className="text-muted mb-4">Manage when your reports run and who receives them.</p>
-
-        <div className="card border-0 shadow-sm rounded-4">
-          <div className="card-body p-0">
-            <div className="table-responsive">
-              <table className="table table-hover align-middle mb-0">
-                <thead className="bg-light">
-                  <tr>
-                    <th className="text-muted border-0 py-3 px-4 rounded-top-start">Schedule Name</th>
-                    <th className="text-muted border-0 py-3">Frequency</th>
-                    <th className="text-muted border-0 py-3">Time (UTC)</th>
-                    <th className="text-muted border-0 py-3">Recipients</th>
-                    <th className="text-muted border-0 py-3 text-end px-4 rounded-top-end">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading && (
-                    <tr><td colSpan={4} className="text-center py-4">Loading schedules...</td></tr>
-                  )}
-                  {!loading && schedules.length === 0 && (
-                    <tr>
-                      <td colSpan={5} className="text-center py-4 text-muted">
-                        No schedules created yet. <Link href="/NewSchedule">Create one now.</Link>
-                      </td>
-                    </tr>
-                  )}
-                  {!loading && schedules.map((sch: any) => (
-                    <tr key={sch.id}>
-                      <td className="fw-semibold py-4 px-4 border-bottom-0">{sch.name}</td>
-                      <td className="text-secondary py-4 border-bottom-0 text-capitalize">
-                        <i className="bi bi-clock me-2"></i>{sch.frequency}
-                      </td>
-                      <td className="text-secondary py-4 border-bottom-0">
-                        {sch.time_of_day}
-                      </td>
-                      <td className="py-4 border-bottom-0">
-                        <span className="badge bg-light text-dark border px-2 py-1">
-                          {sch.recipients.split(',').length} Users
-                        </span>
-                      </td>
-                      <td className="text-end py-4 px-4 border-bottom-0">
-                        <Link href={`/EditSchedule/${sch.id}`} className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-medium me-2">
-                          Edit
-                        </Link>
-                        <button 
-                          className="btn btn-sm btn-outline-danger rounded-pill px-3 fw-medium"
-                          onClick={(e) => handleDelete(e, sch.id)}
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+        </motion.div>
       </motion.div>
+
+        {loading ? (
+          <div className="text-center py-5">Loading schedules...</div>
+        ) : schedules.length === 0 ? (
+          <div className="text-center py-5 theme-card rounded-4">
+            <h5 className="theme-text-muted mb-3">No schedules created yet.</h5>
+            <Link href="/NewSchedule" className="premium-cta-btn d-inline-flex mx-auto">Create your first schedule</Link>
+          </div>
+        ) : (
+          <motion.div 
+            className="d-flex flex-column gap-2"
+            variants={containerVariants}
+            initial="hidden"
+            animate="show"
+          >
+            {schedules.map((sch: any) => (
+              <SchedulerListCard key={sch.id} schedule={sch} onDelete={handleDelete} variants={itemVariants} />
+            ))}
+          </motion.div>
+        )}
     </div>
   );
 }

@@ -34,7 +34,14 @@ def fetch_data(data_source):
         
         json_data = response.json()
         
-        # If the API returned a list of dictionaries, dynamically build a table.
+        # If json_data is a dictionary, try to find a list of objects inside it (unwrap pagination or data wrappers)
+        if isinstance(json_data, dict):
+            for key, value in json_data.items():
+                if isinstance(value, list) and len(value) > 0 and isinstance(value[0], dict):
+                    json_data = value
+                    break
+        
+        # If the API returned (or contained) a list of dictionaries, dynamically build a table.
         if isinstance(json_data, list) and len(json_data) > 0 and isinstance(json_data[0], dict):
             headers = list(json_data[0].keys())
             table_data = [headers]
@@ -42,6 +49,8 @@ def fetch_data(data_source):
                 table_data.append([str(row.get(h, '')) for h in headers])
             return table_data
             
+        elif isinstance(json_data, list) and len(json_data) == 0:
+            raise ValueError("API returned an empty list.")
         else:
             # Fallback for unexpected formats
             raise ValueError("API did not return a list of objects.")
@@ -155,14 +164,28 @@ def generate_pdf(job, data):
     normal_style = styles['Normal']
     
     layout_type = job.template.layout
+    branding_color = job.template.branding_color or '#1e3c72'
     
     # Custom Document layout style
     if layout_type == 'Document':
-        title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], alignment=0, textColor=colors.HexColor('#222222'))
+        title_style = ParagraphStyle('DocTitle', parent=styles['Heading1'], alignment=0, textColor=colors.HexColor(branding_color))
         normal_style = ParagraphStyle('DocNormal', parent=styles['Normal'], alignment=0, spaceBefore=6, spaceAfter=6, fontSize=11, leading=16)
     else:
-        title_style = ParagraphStyle('GridTitle', parent=styles['Heading1'], alignment=1, textColor=colors.HexColor('#1e3c72'))
+        title_style = ParagraphStyle('GridTitle', parent=styles['Heading1'], alignment=1, textColor=colors.HexColor(branding_color))
         normal_style = ParagraphStyle('GridNormal', parent=styles['Normal'], alignment=1)
+
+    # Branding Logo
+    if job.template.branding_logo:
+        try:
+            logo_img = Image(job.template.branding_logo.path, width=150, height=50, kind='proportional')
+            if layout_type == 'Grid':
+                logo_img.hAlign = 'CENTER'
+            else:
+                logo_img.hAlign = 'LEFT'
+            elements.append(logo_img)
+            elements.append(Spacer(1, 12))
+        except Exception as e:
+            pass # Ignore if file missing or corrupt
 
     # Header
     header_text = job.template.header_text or f"Report: {job.name}"
@@ -214,7 +237,7 @@ def generate_pdf(job, data):
     else:
         # Grid table styling (bold and colorful)
         table_style = TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1e3c72')),
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor(branding_color)),
             ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
@@ -264,14 +287,47 @@ def send_report_email(job, pdf_content):
     if not recipient_list:
         raise ValueError("No valid recipients found.")
         
+    branding_color = job.template.branding_color or '#1e3c72'
+    logo_html = ""
+    if job.template.branding_logo:
+        logo_html = '<img src="cid:branding_logo" style="max-height: 60px; margin-bottom: 10px;" /><br/>'
+        
+    branded_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+        <div style="background-color: {branding_color}; padding: 24px; color: #ffffff; text-align: center;">
+            {logo_html}
+            <h2 style="margin: 0; font-size: 24px;">{job.name}</h2>
+        </div>
+        <div style="padding: 24px; color: #374151; line-height: 1.6; background-color: #ffffff;">
+            {html_body}
+        </div>
+        <div style="background-color: #f9fafb; padding: 16px; text-align: center; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
+            Powered by AutoReporter
+        </div>
+    </div>
+    """
+        
     email = EmailMultiAlternatives(
         subject=subject,
         body=text_body,
         from_email='noreply@autoreporter.com',
         to=recipient_list
     )
-    email.attach_alternative(html_body, "text/html")
+    email.attach_alternative(branded_html, "text/html")
     email.attach(f"{job.name.replace(' ', '_')}_{timezone.now().strftime('%Y%m%d')}.pdf", pdf_content, 'application/pdf')
+    
+    # Attach the inline logo if it exists
+    if job.template.branding_logo:
+        from email.mime.image import MIMEImage
+        try:
+            with job.template.branding_logo.open('rb') as f:
+                img = MIMEImage(f.read())
+                img.add_header('Content-ID', '<branding_logo>')
+                img.add_header('Content-Disposition', 'inline')
+                email.attach(img)
+        except Exception as e:
+            pass # Non-fatal
+            
     email.send()
 
 def execute_job(job_id):

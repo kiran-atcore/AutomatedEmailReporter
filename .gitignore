@@ -73,3 +73,20 @@ backend/db.sqlite3
 *.media/
 backend/media/
 backend/static/
+
+# ----------------
+# Development & IDEs
+# ----------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.agents/
+.gemini/
+
+# ----------------
+# Temporary & Scratch
+# ----------------
+backend/sent_emails/
+test_*.py
+

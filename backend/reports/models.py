@@ -1,11 +1,12 @@
 from django.db import models
 from django.conf import settings
+from .fields import EncryptedCharField
 
 class DataSource(models.Model):
     name = models.CharField(max_length=255)
     connection_type = models.CharField(max_length=50)
     endpoint = models.CharField(max_length=500)
-    auth_token = models.CharField(max_length=255, blank=True, null=True)
+    auth_token = EncryptedCharField(max_length=255, blank=True, null=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     def __str__(self):
@@ -22,6 +23,8 @@ class ReportTemplate(models.Model):
     email_body_html = models.TextField(blank=True, null=True)
     enable_ai_summary = models.BooleanField(default=False)
     ai_prompt = models.TextField(blank=True, null=True, help_text="Custom instructions for the AI")
+    branding_logo = models.ImageField(upload_to='branding_logos/', blank=True, null=True)
+    branding_color = models.CharField(max_length=7, default='#1e3c72')
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     def __str__(self):
@@ -31,6 +34,7 @@ class Schedule(models.Model):
     name = models.CharField(max_length=255)
     frequency = models.CharField(max_length=50)
     time_of_day = models.TimeField()
+    timezone = models.CharField(max_length=50, default='UTC')
     recipients = models.TextField(help_text="Comma separated email addresses")
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 

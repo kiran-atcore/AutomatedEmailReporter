@@ -37,7 +37,7 @@ class JobSerializer(serializers.ModelSerializer):
         
         # Fetch next run time from APScheduler
         from django_apscheduler.models import DjangoJob
-        job_id_str = str(instance.id)
+        job_id_str = f"job_{instance.id}"
         scheduler_job = DjangoJob.objects.filter(id=job_id_str).first()
         response['next_run_time'] = scheduler_job.next_run_time if scheduler_job else None
         

@@ -17,6 +17,25 @@ class DataSourceViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    @action(detail=False, methods=['post'])
+    def test_connection(self, request):
+        endpoint = request.data.get('endpoint')
+        auth_token = request.data.get('auth_token')
+        
+        class MockDataSource:
+            pass
+            
+        ds = MockDataSource()
+        ds.endpoint = endpoint
+        ds.auth_token = auth_token
+        
+        from .engine import fetch_data
+        try:
+            fetch_data(ds)
+            return Response({"status": "success", "message": "Connection successful!"})
+        except Exception as e:
+            return Response({"status": "failed", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 class ReportTemplateViewSet(viewsets.ModelViewSet):
     serializer_class = ReportTemplateSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -72,10 +91,24 @@ class ExecutionLogViewSet(viewsets.ModelViewSet):
         status_filter = self.request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
-        return qs.order_by('-executed_at')
+
+        search = self.request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            qs = qs.filter(Q(job_name_snapshot__icontains=search) | Q(job__name__icontains=search) | Q(status__icontains=search))
+
+        ordering = self.request.query_params.get('ordering', '-executed_at')
+        if ordering:
+            qs = qs.order_by(ordering)
+            
+        return qs
 
     def destroy(self, request, *args, **kwargs):
-        instance = self.get_object()
+        try:
+            instance = ExecutionLog.objects.get(id=kwargs['pk'], job__owner=self.request.user)
+        except ExecutionLog.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+            
         if request.query_params.get('permanent') == 'true':
             instance.is_deleted_from_reports = True
             instance.save()
@@ -87,11 +120,12 @@ class ExecutionLogViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['delete'])
     def clear_all(self, request):
+        base_qs = ExecutionLog.objects.filter(job__owner=request.user)
         if request.query_params.get('permanent') == 'true':
-            self.get_queryset().update(is_deleted_from_reports=True)
+            base_qs.update(is_deleted_from_reports=True)
             return Response({"message": "Logs permanently removed from reports list."})
         else:
-            self.get_queryset().update(is_archived=True)
+            base_qs.update(is_archived=True)
             return Response({"message": "All logs cleared from dashboard successfully."})
 
 @api_view(['GET'])

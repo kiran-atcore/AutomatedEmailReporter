@@ -15,7 +15,6 @@ const AlertContext = createContext<AlertContextProps | undefined>(undefined);
 export const useAlert = () => {
   const context = useContext(AlertContext);
   if (!context) {
-    // Return a fallback that mimics native behavior in case it's called outside the provider during transitions
     return {
       showAlert: (msg: string) => window.alert(msg),
       showConfirm: async (msg: string) => window.confirm(msg)
@@ -51,7 +50,7 @@ export const AlertProvider = ({ children }: { children: ReactNode }) => {
   const handleClose = (result: boolean) => {
     setIsOpen(false);
     if (resolvePromise) resolvePromise(result);
-    
+
     // Clear out state after animation finishes
     setTimeout(() => {
       setResolvePromise(undefined);
@@ -63,12 +62,12 @@ export const AlertProvider = ({ children }: { children: ReactNode }) => {
       {children}
       <AnimatePresence>
         {isOpen && (
-          <div 
-            style={{ 
-              zIndex: 1050, 
-              backgroundColor: 'rgba(0,0,0,0.65)',
-              backdropFilter: 'blur(6px)',
-              WebkitBackdropFilter: 'blur(6px)',
+          <div
+            style={{
+              zIndex: 1050,
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
               position: 'fixed',
               top: 0, left: 0, right: 0, bottom: 0,
               display: 'flex',
@@ -77,39 +76,80 @@ export const AlertProvider = ({ children }: { children: ReactNode }) => {
             }}
           >
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              style={{ width: '100%', maxWidth: '450px', padding: '0 1rem' }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              style={{ width: '100%', maxWidth: '420px', padding: '0 1rem' }}
             >
-              <div className="card border-0 shadow-lg rounded-4 overflow-hidden">
-                <div className="card-header border-bottom-0 bg-white pt-4 pb-0 px-4 d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0 fw-bold" style={{ color: "#1e3c72" }}>{title}</h5>
-                  {type === "alert" && (
-                    <button type="button" className="btn-close" onClick={() => handleClose(true)}></button>
-                  )}
-                </div>
-                <div className="card-body py-4 px-4 text-secondary fs-6">
-                  {message}
-                </div>
-                <div className="card-footer border-top-0 bg-white pb-4 px-4 d-flex justify-content-end gap-2">
-                  {type === "confirm" && (
-                    <button 
-                      type="button" 
-                      className="btn btn-light rounded-pill px-4 fw-medium" 
-                      onClick={() => handleClose(false)}
+              <div
+                className="position-relative overflow-hidden rounded-4 shadow-lg"
+                style={{
+                  background: "rgba(21, 21, 21, 0.7)",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)",
+                  backdropFilter: "blur(20px)"
+                }}
+              >
+                {/* Accent Top Border */}
+                <div
+                  className="position-absolute top-0 start-0 w-100"
+                  style={{ height: "4px", background: type === "confirm" ? "var(--theme-accent)" : "#4facfe" }}
+                />
+
+                <div className="p-4 pt-5">
+                  <div className="d-flex align-items-center gap-3 mb-3">
+                    <div
+                      className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0"
+                      style={{
+                        width: "48px", height: "48px",
+                        background: type === "confirm" ? "rgba(255,87,34,0.15)" : "rgba(79,172,254,0.15)",
+                        color: type === "confirm" ? "var(--theme-accent)" : "#4facfe",
+                        border: `1px solid ${type === "confirm" ? "rgba(255,87,34,0.2)" : "rgba(79,172,254,0.2)"}`
+                      }}
                     >
-                      Cancel
-                    </button>
-                  )}
-                  <button 
-                    type="button" 
-                    className={`btn ${type === 'confirm' ? 'btn-danger' : 'btn-primary'} rounded-pill px-4 fw-medium shadow-sm`}
-                    onClick={() => handleClose(true)}
-                  >
-                    {type === "confirm" ? "Confirm" : "OK"}
-                  </button>
+                      <i className={`bi ${type === "confirm" ? "bi-exclamation-triangle" : "bi-info-circle"} fs-4`}></i>
+                    </div>
+                    <h5 className="mb-0 fw-bold text-white" style={{ letterSpacing: "-0.5px" }}>
+                      {title}
+                    </h5>
+                  </div>
+
+                  <p className="theme-text-muted mb-4" style={{ fontSize: "0.95rem", lineHeight: "1.6" }}>
+                    {message}
+                  </p>
+
+                  <div className="d-flex justify-content-end gap-3 mt-5">
+                    {type === "confirm" && (
+                      <motion.button
+                        whileHover={{ background: "rgba(255,255,255,0.08)" }}
+                        whileTap={{ scale: 0.95 }}
+                        className="btn rounded-pill px-4 fw-medium border-0"
+                        style={{ color: "var(--theme-text-secondary)", background: "rgba(255,255,255,0.03)", transition: "all 0.2s" }}
+                        onClick={() => handleClose(false)}
+                      >
+                        Cancel
+                      </motion.button>
+                    )}
+                    <motion.button
+                      whileHover={{
+                        scale: 1.05,
+                        boxShadow: type === "confirm" ? "0 0 15px rgba(220,53,69,0.4)" : "0 0 15px rgba(79,172,254,0.4)"
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                      className="btn rounded-pill px-4 fw-bold shadow-sm d-flex align-items-center justify-content-center gap-2"
+                      style={{
+                        background: type === "confirm" ? "rgba(220,53,69,0.15)" : "rgba(79,172,254,0.15)",
+                        color: type === "confirm" ? "#ff4d4d" : "#4facfe",
+                        border: `1px solid ${type === "confirm" ? "rgba(220,53,69,0.3)" : "rgba(79,172,254,0.3)"}`,
+                        transition: "all 0.3s"
+                      }}
+                      onClick={() => handleClose(true)}
+                    >
+                      <span>{type === "confirm" ? "Confirm" : "Understood"}</span>
+                      <i className={`bi ${type === "confirm" ? "bi-check-lg" : "bi-arrow-right"}`}></i>
+                    </motion.button>
+                  </div>
                 </div>
               </div>
             </motion.div>

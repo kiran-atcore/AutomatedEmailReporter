@@ -23,14 +23,16 @@ def register_jobs(scheduler):
         hour = schedule_rule.time_of_day.hour
         minute = schedule_rule.time_of_day.minute
         
+        tz = schedule_rule.timezone if hasattr(schedule_rule, 'timezone') and schedule_rule.timezone else settings.TIME_ZONE
+        
         if schedule_rule.frequency == 'hourly':
-            trigger = CronTrigger(minute=minute)
+            trigger = CronTrigger(minute=minute, timezone=tz)
         elif schedule_rule.frequency == 'daily':
-            trigger = CronTrigger(hour=hour, minute=minute)
+            trigger = CronTrigger(hour=hour, minute=minute, timezone=tz)
         elif schedule_rule.frequency == 'weekly':
-            trigger = CronTrigger(day_of_week='mon', hour=hour, minute=minute)
+            trigger = CronTrigger(day_of_week='mon', hour=hour, minute=minute, timezone=tz)
         else:
-            trigger = CronTrigger(hour=hour, minute=minute)
+            trigger = CronTrigger(hour=hour, minute=minute, timezone=tz)
 
         job_id = f"job_{job.id}"
         
@@ -76,5 +78,7 @@ class Command(BaseCommand):
             except Exception:
                 pass
             self.stdout.write(self.style.SUCCESS("Scheduler shut down successfully!"))
+            import sys
+            sys.exit(0)
             import sys
             sys.exit(0)
