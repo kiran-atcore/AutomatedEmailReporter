@@ -89,4 +89,5 @@ backend/static/
 # ----------------
 backend/sent_emails/
 test_*.py
-
+*.db
+frontend/lint_output.txt

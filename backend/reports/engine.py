@@ -13,7 +13,12 @@ import matplotlib
 matplotlib.use('Agg') # Headless backend
 import matplotlib.pyplot as plt
 import os
+import csv
+import re
+from io import StringIO
 from groq import Groq
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 def fetch_data(data_source):
     """
@@ -21,7 +26,15 @@ def fetch_data(data_source):
     Returns a 2D array representing the data table.
     """
     endpoint = data_source.endpoint
+    conn_type = data_source.connection_type.lower()
     
+    if conn_type == 'sql':
+        return fetch_data_sql(data_source)
+    elif conn_type == 'google_sheets':
+        return fetch_data_sheets(data_source)
+    elif conn_type == 'airtable':
+        return fetch_data_airtable(data_source)
+        
     try:
         # We will use headers if auth_token is provided
         headers = {}
@@ -62,6 +75,111 @@ def fetch_data(data_source):
         raise ValueError("API did not return valid JSON.")
     except Exception as e:
         raise ValueError(f"Data processing failed: {str(e)}")
+
+def fetch_data_sql(data_source):
+    """
+    Fetches data from a SQL database using SQLAlchemy.
+    """
+    try:
+        engine = create_engine(data_source.endpoint)
+        query = data_source.config.get('query') if data_source.config else None
+        
+        if not query:
+            raise ValueError("SQL Query is required for database connections.")
+            
+        with engine.connect() as connection:
+            result = connection.execute(text(query))
+            
+            headers = list(result.keys())
+            table_data = [headers]
+            
+            for row in result:
+                table_data.append([str(col) for col in row])
+                
+            if len(table_data) <= 1:
+                raise ValueError("Query returned no results.")
+                
+            return table_data
+    except SQLAlchemyError as e:
+        raise ValueError(f"Database Connection Failed: {str(e)}")
+    except Exception as e:
+        raise ValueError(f"SQL Execution Failed: {str(e)}")
+
+def fetch_data_sheets(data_source):
+    """
+    Fetches data from a public Google Sheet via CSV export.
+    """
+    url = data_source.endpoint
+    # Extract sheet ID
+    match = re.search(r'/d/([a-zA-Z0-9-_]+)', url)
+    if not match:
+        raise ValueError("Invalid Google Sheets URL.")
+    sheet_id = match.group(1)
+    
+    # Extract gid if present
+    gid = "0"
+    gid_match = re.search(r'gid=([0-9]+)', url)
+    if gid_match:
+        gid = gid_match.group(1)
+        
+    csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/export?format=csv&gid={gid}"
+    
+    response = requests.get(csv_url)
+    if response.status_code != 200:
+        raise ValueError(f"Failed to fetch Google Sheet. Is it public? (HTTP {response.status_code})")
+        
+    reader = csv.reader(StringIO(response.text))
+    table_data = list(reader)
+    if len(table_data) <= 1:
+         raise ValueError("Google Sheet is empty or invalid.")
+         
+    return table_data
+
+def fetch_data_airtable(data_source):
+    """
+    Fetches data from an Airtable Base.
+    endpoint: Base ID (e.g. app123456789)
+    config.table_name: Table Name
+    auth_token: Personal Access Token
+    """
+    import re
+    match = re.search(r'(app[a-zA-Z0-9]+)', data_source.endpoint)
+    base_id = match.group(1) if match else data_source.endpoint
+    
+    table_name = data_source.config.get('table_name') if data_source.config else None
+    
+    if not table_name:
+        raise ValueError("Airtable Table Name is required in config.")
+        
+    url = f"https://api.airtable.com/v0/{base_id}/{table_name}"
+    headers = {
+        "Authorization": f"Bearer {data_source.auth_token}"
+    }
+    
+    response = requests.get(url, headers=headers)
+    if response.status_code != 200:
+        raise ValueError(f"Airtable API Failed: {response.text}")
+        
+    data = response.json()
+    records = data.get('records', [])
+    if not records:
+        raise ValueError("No records found in Airtable.")
+        
+    # Extract all possible field names from all records
+    field_names = set()
+    for record in records:
+        field_names.update(record.get('fields', {}).keys())
+    
+    headers = sorted(list(field_names))
+    table_data = [headers]
+    
+    for record in records:
+        fields = record.get('fields', {})
+        # Convert all to strings, handle lists or dicts in airtable fields
+        row = [str(fields.get(h, '')) for h in headers]
+        table_data.append(row)
+        
+    return table_data
 
 def generate_chart(data, chart_type):
     """
@@ -136,7 +254,11 @@ def generate_ai_summary(data, custom_prompt):
         data_json = json.dumps(rows, indent=2)
         
         # Default prompt if none provided
-        system_prompt = "You are an expert data analyst. Summarize the following data concisely, highlighting key trends or anomalies. Do not include introductory/outro phrases, just the summary paragraph."
+        system_prompt = (
+            "You are an expert data analyst. Summarize the following data concisely, highlighting key trends or anomalies. "
+            "Do not include introductory/outro phrases, just the summary paragraph. "
+            "VERY IMPORTANT: Format your response using basic HTML tags (<b>, <i>, <br/>) instead of Markdown. Do NOT use asterisks for bolding."
+        )
         if custom_prompt:
             system_prompt += f"\n\nAdditional Instructions from user: {custom_prompt}"
             
@@ -149,7 +271,15 @@ def generate_ai_summary(data, custom_prompt):
             temperature=0.5,
             max_tokens=256
         )
-        return chat_completion.choices[0].message.content
+        summary_text = chat_completion.choices[0].message.content
+        
+        # Cleanup: convert any accidental markdown to reportlab-compatible HTML
+        import re
+        summary_text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', summary_text)
+        summary_text = re.sub(r'\*(.*?)\*', r'<i>\1</i>', summary_text)
+        summary_text = summary_text.replace('\n', '<br/>')
+        
+        return summary_text
     except Exception as e:
         print(f"Groq API Error: {str(e)}")
         return f"AI Summary failed to generate: {str(e)}"
@@ -292,19 +422,28 @@ def send_report_email(job, pdf_content):
     if job.template.branding_logo:
         logo_html = '<img src="cid:branding_logo" style="max-height: 60px; margin-bottom: 10px;" /><br/>'
         
+    css_styles = f"<style>\n{job.template.css_overrides}\n</style>" if getattr(job.template, 'css_overrides', None) else ""
+    
     branded_html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-        <div style="background-color: {branding_color}; padding: 24px; color: #ffffff; text-align: center;">
-            {logo_html}
-            <h2 style="margin: 0; font-size: 24px;">{job.name}</h2>
+    <html>
+    <head>
+        {css_styles}
+    </head>
+    <body>
+        <div class="report-wrapper" style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
+            <div class="report-header" style="background-color: {branding_color}; padding: 24px; color: #ffffff; text-align: center;">
+                {logo_html}
+                <h2 style="margin: 0; font-size: 24px;">{job.name}</h2>
+            </div>
+            <div class="report-body" style="padding: 24px; color: #374151; line-height: 1.6; background-color: #ffffff;">
+                {html_body}
+            </div>
+            <div class="report-footer" style="background-color: #f9fafb; padding: 16px; text-align: center; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
+                Powered by AutoReporter
+            </div>
         </div>
-        <div style="padding: 24px; color: #374151; line-height: 1.6; background-color: #ffffff;">
-            {html_body}
-        </div>
-        <div style="background-color: #f9fafb; padding: 16px; text-align: center; color: #6b7280; font-size: 12px; border-top: 1px solid #e5e7eb;">
-            Powered by AutoReporter
-        </div>
-    </div>
+    </body>
+    </html>
     """
         
     email = EmailMultiAlternatives(

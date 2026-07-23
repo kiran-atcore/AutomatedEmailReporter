@@ -4,6 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import "./globals.css";
 import { AlertProvider } from "@/components/AlertModal";
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -29,11 +30,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${outfit.variable} ${righteous.variable}`}>
+    <html lang="en" className={`${outfit.variable} ${righteous.variable}`} data-scroll-behavior="smooth">
       <body className={outfit.className}>
-        <AlertProvider>
-          {children}
-        </AlertProvider>
+        <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
+          <AlertProvider>
+            {children}
+          </AlertProvider>
+        </GoogleOAuthProvider>
       </body>
     </html>
   );

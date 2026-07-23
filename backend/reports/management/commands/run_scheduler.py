@@ -20,19 +20,30 @@ def register_jobs(scheduler):
     
     for job in active_jobs:
         schedule_rule = job.schedule
-        hour = schedule_rule.time_of_day.hour
-        minute = schedule_rule.time_of_day.minute
-        
         tz = schedule_rule.timezone if hasattr(schedule_rule, 'timezone') and schedule_rule.timezone else settings.TIME_ZONE
         
-        if schedule_rule.frequency == 'hourly':
-            trigger = CronTrigger(minute=minute, timezone=tz)
-        elif schedule_rule.frequency == 'daily':
-            trigger = CronTrigger(hour=hour, minute=minute, timezone=tz)
-        elif schedule_rule.frequency == 'weekly':
-            trigger = CronTrigger(day_of_week='mon', hour=hour, minute=minute, timezone=tz)
+        if schedule_rule.frequency == 'cron':
+            if not schedule_rule.cron_expression:
+                print(f"Skipping Job {job.name}: Missing cron_expression")
+                continue
+            trigger = CronTrigger.from_crontab(schedule_rule.cron_expression, timezone=tz)
+            print(f"Registered Job: {job.name} -> {schedule_rule.frequency} '{schedule_rule.cron_expression}'")
         else:
-            trigger = CronTrigger(hour=hour, minute=minute, timezone=tz)
+            if not schedule_rule.time_of_day:
+                print(f"Skipping Job {job.name}: Missing time_of_day")
+                continue
+            hour = schedule_rule.time_of_day.hour
+            minute = schedule_rule.time_of_day.minute
+            
+            if schedule_rule.frequency == 'hourly':
+                trigger = CronTrigger(minute=minute, timezone=tz)
+            elif schedule_rule.frequency == 'daily':
+                trigger = CronTrigger(hour=hour, minute=minute, timezone=tz)
+            elif schedule_rule.frequency == 'weekly':
+                trigger = CronTrigger(day_of_week='mon', hour=hour, minute=minute, timezone=tz)
+            else:
+                trigger = CronTrigger(hour=hour, minute=minute, timezone=tz)
+            print(f"Registered Job: {job.name} -> {schedule_rule.frequency} at {hour}:{minute}")
 
         job_id = f"job_{job.id}"
         
@@ -44,7 +55,6 @@ def register_jobs(scheduler):
             replace_existing=True,
             args=[job.id],
         )
-        print(f"Registered Job: {job.name} -> {schedule_rule.frequency} at {hour}:{minute}")
 
 class Command(BaseCommand):
     help = "Runs APScheduler."

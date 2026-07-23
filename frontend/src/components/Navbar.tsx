@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion, useScroll } from 'framer-motion';
 import LogoName from './LogoName';
+import { useAlert } from '@/components/AlertModal';
 
 interface NavbarProps {
   onMobileMenuToggle: () => void;
@@ -12,9 +13,17 @@ interface NavbarProps {
 export default function Navbar({ onMobileMenuToggle, onLogout, isHidden = false }: NavbarProps) {
   const { scrollY, scrollYProgress } = useScroll();
   const [isScrolled, setIsScrolled] = useState(false);
+  const { showConfirm } = useAlert();
+
+  const handleLogoutClick = async () => {
+    const confirmed = await showConfirm("Are you sure you want to securely logout?", "Logout");
+    if (confirmed) {
+      onLogout();
+    }
+  };
 
   useEffect(() => {
-    return scrollY.onChange((latest) => {
+    return scrollY.on("change", (latest) => {
       setIsScrolled(latest > 10);
     });
   }, [scrollY]);
@@ -90,10 +99,10 @@ export default function Navbar({ onMobileMenuToggle, onLogout, isHidden = false 
             </div>
             <span className="fw-medium text-white">Admin</span>
           </div> */}
-          <button onClick={onLogout} className="btn btn-outline-danger btn-sm rounded-pill px-4 py-1 fw-bold d-none d-md-block">
+          <button onClick={handleLogoutClick} className="btn btn-outline-danger btn-sm rounded-pill px-4 py-1 fw-bold d-none d-md-block">
             Logout
           </button>
-          <button onClick={onLogout} className="btn btn-link text-danger d-md-none p-0">
+          <button onClick={handleLogoutClick} className="btn btn-link text-danger d-md-none p-0">
             <i className="bi bi-box-arrow-right fs-4"></i>
           </button>
         </div>

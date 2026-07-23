@@ -14,6 +14,7 @@ export default function JobView() {
   
   const [job, setJob] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [running, setRunning] = useState(false);
   const { showAlert } = useAlert();
 
   useEffect(() => {
@@ -32,12 +33,15 @@ export default function JobView() {
   }, [id]);
 
   const handleRunNow = async () => {
+    setRunning(true);
     try {
-      await api.post(`/reports/jobs/${id}/run/`);
-      showAlert("Job triggered successfully! It is running in the background.", "Success");
-    } catch (err) {
+      await api.post(`/reports/jobs/${id}/run/?sync=true`);
+      showAlert("Job executed successfully! The email report has been sent.", "Success");
+    } catch (err: any) {
       console.error("Failed to run job", err);
-      showAlert("Failed to run job.", "Error");
+      showAlert(err.response?.data?.message || "Failed to run job.", "Error");
+    } finally {
+      setRunning(false);
     }
   };
 
@@ -77,13 +81,23 @@ export default function JobView() {
               </h2>
             </div>
           </div>
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <motion.div whileHover={!running ? { scale: 1.05 } : {}} whileTap={!running ? { scale: 0.95 } : {}}>
             <button 
               className="btn text-white fw-bold rounded-pill px-5 py-3 shadow d-flex align-items-center gap-2"
               onClick={handleRunNow}
+              disabled={running}
               style={{ background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", boxShadow: "0 10px 25px rgba(79, 172, 254, 0.4)", border: "none" }}
             >
-              <i className="bi bi-play-fill fs-5"></i> Run Workflow Now
+              {running ? (
+                <>
+                  <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                  Running...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-play-fill fs-5"></i> Run Workflow Now
+                </>
+              )}
             </button>
           </motion.div>
         </motion.div>

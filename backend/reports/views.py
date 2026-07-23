@@ -21,6 +21,8 @@ class DataSourceViewSet(viewsets.ModelViewSet):
     def test_connection(self, request):
         endpoint = request.data.get('endpoint')
         auth_token = request.data.get('auth_token')
+        connection_type = request.data.get('connection_type', 'api')
+        config = request.data.get('config', {})
         
         class MockDataSource:
             pass
@@ -28,6 +30,8 @@ class DataSourceViewSet(viewsets.ModelViewSet):
         ds = MockDataSource()
         ds.endpoint = endpoint
         ds.auth_token = auth_token
+        ds.connection_type = connection_type
+        ds.config = config
         
         from .engine import fetch_data
         try:
@@ -35,6 +39,76 @@ class DataSourceViewSet(viewsets.ModelViewSet):
             return Response({"status": "success", "message": "Connection successful!"})
         except Exception as e:
             return Response({"status": "failed", "message": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'])
+    def generate_sql(self, request):
+        endpoint = request.data.get('endpoint')
+        prompt = request.data.get('prompt')
+        
+        if not endpoint or not prompt:
+            return Response({"status": "failed", "message": "Endpoint and prompt are required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        import os
+        from groq import Groq
+        from sqlalchemy import create_engine, inspect
+        from sqlalchemy.exc import SQLAlchemyError
+        
+        try:
+            # 1. Connect and inspect schema
+            engine = create_engine(endpoint)
+            inspector = inspect(engine)
+            tables = inspector.get_table_names()
+            
+            schema_info = []
+            for table in tables:
+                columns = inspector.get_columns(table)
+                col_names = [col['name'] for col in columns]
+                schema_info.append(f"Table '{table}' with columns: {', '.join(col_names)}")
+                
+            schema_text = "\n".join(schema_info)
+            if not schema_text:
+                schema_text = "No tables found in database."
+                
+            # 2. Call Groq
+            api_key = os.environ.get("GROQ_API_KEY")
+            if not api_key:
+                return Response({"status": "failed", "message": "GROQ_API_KEY is not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+            client = Groq(api_key=api_key)
+            system_prompt = (
+                "You are an expert SQL developer. "
+                "Given a natural language request and a database schema, write the exact SQL query to satisfy the request. "
+                "Return ONLY the raw SQL query. Do not wrap it in markdown blockquotes (e.g., no ```sql). "
+                "Do not include any explanations."
+            )
+            
+            user_message = f"Schema:\n{schema_text}\n\nRequest: {prompt}\n\nSQL Query:"
+            
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                model="llama-3.1-8b-instant",
+                temperature=0.1,
+                max_tokens=500
+            )
+            
+            sql_query = chat_completion.choices[0].message.content.strip()
+            # Clean up markdown if AI ignored instructions
+            if sql_query.startswith("```sql"):
+                sql_query = sql_query[6:]
+            if sql_query.startswith("```"):
+                sql_query = sql_query[3:]
+            if sql_query.endswith("```"):
+                sql_query = sql_query[:-3]
+                
+            return Response({"status": "success", "query": sql_query.strip()})
+            
+        except SQLAlchemyError as e:
+            return Response({"status": "failed", "message": f"Could not connect to database to read schema: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({"status": "failed", "message": f"AI Generation Failed: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ReportTemplateViewSet(viewsets.ModelViewSet):
     serializer_class = ReportTemplateSerializer
@@ -56,6 +130,46 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
+    @action(detail=False, methods=['post'])
+    def generate_cron(self, request):
+        prompt = request.data.get('prompt')
+        
+        if not prompt:
+            return Response({"status": "failed", "message": "Prompt is required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        import os
+        from groq import Groq
+        
+        try:
+            api_key = os.environ.get("GROQ_API_KEY")
+            if not api_key:
+                return Response({"status": "failed", "message": "GROQ_API_KEY is not configured."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                
+            client = Groq(api_key=api_key)
+            system_prompt = (
+                "You are an expert cron string generator. "
+                "Given a natural language request for a schedule, output ONLY the 5-part cron expression (e.g., '0 9 * * 1-5'). "
+                "Do not include any explanations, backticks, or extra text."
+            )
+            
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ],
+                model="llama-3.1-8b-instant",
+                temperature=0.1,
+                max_tokens=20
+            )
+            
+            cron_expression = chat_completion.choices[0].message.content.strip()
+            # Clean up just in case
+            cron_expression = cron_expression.replace("`", "")
+            
+            return Response({"cron": cron_expression})
+        except Exception as e:
+            return Response({"status": "failed", "message": f"Failed to generate cron: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class JobViewSet(viewsets.ModelViewSet):
     serializer_class = JobSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -72,6 +186,13 @@ class JobViewSet(viewsets.ModelViewSet):
         from .engine import execute_job
         import threading
         
+        if request.query_params.get('sync') == 'true':
+            try:
+                execute_job(job.id)
+                return Response({"message": f"Job {job.name} triggered and finished successfully."})
+            except Exception as e:
+                return Response({"message": f"Job execution failed: {str(e)}"}, status=400)
+                
         # Run it in a background thread so the API returns instantly
         thread = threading.Thread(target=execute_job, args=(job.id,))
         thread.start()

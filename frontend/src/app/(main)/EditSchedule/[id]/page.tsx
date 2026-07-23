@@ -13,6 +13,9 @@ export default function EditSchedulePage() {
   const id = params.id;
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [aiMode, setAiMode] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [generatingCron, setGeneratingCron] = useState(false);
   const { showAlert } = useAlert();
 
   const [formData, setFormData] = useState({
@@ -20,6 +23,7 @@ export default function EditSchedulePage() {
     frequency: "",
     time_of_day: "",
     timezone: "UTC",
+    cron_expression: "",
   });
 
   const [emails, setEmails] = useState<string[]>([]);
@@ -52,8 +56,9 @@ export default function EditSchedulePage() {
         setFormData({
           name: response.data.name,
           frequency: response.data.frequency,
-          time_of_day: response.data.time_of_day,
+          time_of_day: response.data.time_of_day || "",
           timezone: response.data.timezone || "UTC",
+          cron_expression: response.data.cron_expression || "",
         });
         if (response.data.recipients) {
           setEmails(response.data.recipients.split(',').map((e: string) => e.trim()).filter(Boolean));
@@ -68,18 +73,55 @@ export default function EditSchedulePage() {
     fetchSchedule();
   }, [id]);
 
+  const handleGenerateCron = async () => {
+    if (!aiPrompt) {
+      showAlert("Please enter a prompt first.", "Error");
+      return;
+    }
+    setGeneratingCron(true);
+    try {
+      const response = await api.post("/reports/schedules/generate_cron/", {
+        prompt: aiPrompt
+      });
+      setFormData({...formData, cron_expression: response.data.cron });
+      setAiMode(false);
+    } catch (err: any) {
+      console.error(err);
+      showAlert(err.response?.data?.message || "Failed to generate cron.", "Error");
+    } finally {
+      setGeneratingCron(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (emails.length === 0) {
       showAlert("Please add at least one recipient email.", "Validation Error");
       return;
     }
+    if (formData.frequency === "cron" && !formData.cron_expression) {
+      showAlert("Please enter a custom cron expression.", "Validation Error");
+      return;
+    }
+    if (formData.frequency !== "cron" && !formData.time_of_day) {
+      showAlert("Please select a time of day.", "Validation Error");
+      return;
+    }
+
     setLoading(true);
     try {
-      await api.patch(`/reports/schedules/${id}/`, {
+      const payload = {
         ...formData,
         recipients: emails.join(',')
-      });
+      };
+      
+      if (payload.frequency === 'cron') {
+        payload.time_of_day = null as any;
+      } else {
+        payload.cron_expression = "";
+      }
+
+      await api.patch(`/reports/schedules/${id}/`, payload);
       router.push("/Scheduler");
     } catch (err) {
       console.error("Failed to update schedule", err);
@@ -171,16 +213,127 @@ export default function EditSchedulePage() {
                       </select>
                     </div>
                     <div className="col-12 col-md-4">
-                      <label className="premium-label d-flex align-items-center gap-2 mb-2">
-                        <i className="bi bi-alarm"></i> TIME
-                      </label>
-                      <input 
-                        type="time" 
-                        className="form-control premium-input" 
-                        required 
-                        value={formData.time_of_day}
-                        onChange={(e) => setFormData({...formData, time_of_day: e.target.value})}
-                      />
+                      {formData.frequency === 'cron' ? (
+                        <>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <label className="premium-label mb-0">
+                              <i className="bi bi-terminal"></i> Cron Expression
+                            </label>
+                            <div className="d-flex p-1 rounded-pill" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "inset 0 2px 5px rgba(0,0,0,0.2)" }}>
+                              <button 
+                                type="button" 
+                                className="btn btn-sm border-0 rounded-pill px-3 fw-bold"
+                                style={{ 
+                                  background: !aiMode ? "rgba(255,255,255,0.1)" : "transparent",
+                                  color: !aiMode ? "white" : "rgba(255,255,255,0.4)",
+                                  transition: "all 0.3s ease",
+                                  boxShadow: !aiMode ? "0 2px 10px rgba(0,0,0,0.2), inset 0 1px 1px rgba(255,255,255,0.2)" : "none",
+                                  fontSize: "0.75rem"
+                                }} 
+                                onClick={() => setAiMode(false)}
+                              >
+                                Manual
+                              </button>
+                              <button 
+                                type="button" 
+                                className="btn btn-sm border-0 rounded-pill px-3 fw-bold d-flex align-items-center gap-1" 
+                                style={{ 
+                                  background: aiMode ? "linear-gradient(135deg, #ff5722 0%, #ff8a65 100%)" : "transparent",
+                                  color: aiMode ? "white" : "rgba(255,255,255,0.4)",
+                                  transition: "all 0.3s ease",
+                                  boxShadow: aiMode ? "0 4px 15px rgba(255, 87, 34, 0.4), inset 0 1px 1px rgba(255,255,255,0.2)" : "none",
+                                  fontSize: "0.75rem"
+                                }}
+                                onClick={() => setAiMode(true)}
+                              >
+                                <i className="bi bi-stars" style={{ color: aiMode ? "#ffccbc" : "inherit" }}></i> AI Assist
+                              </button>
+                            </div>
+                          </div>
+                          
+                          {aiMode ? (
+                            <motion.div 
+                              initial={{ opacity: 0, height: 0, y: -10 }} 
+                              animate={{ opacity: 1, height: "auto", y: 0 }} 
+                              className="p-4 rounded-4 position-relative overflow-hidden mb-3" 
+                              style={{ 
+                                background: "linear-gradient(135deg, rgba(255, 87, 34, 0.1) 0%, rgba(255, 138, 101, 0.05) 100%)", 
+                                border: "1px solid rgba(255, 87, 34, 0.3)",
+                                boxShadow: "inset 0 1px 1px rgba(255,255,255,0.1), 0 10px 30px rgba(0,0,0,0.2)",
+                                backdropFilter: "blur(10px)"
+                              }}
+                            >
+                              <div className="position-relative z-1">
+                                <label className="text-white fw-semibold mb-3 d-flex align-items-center gap-2" style={{ fontSize: "1rem", letterSpacing: "0.5px" }}>
+                                  <div className="d-flex align-items-center justify-content-center rounded-circle" style={{ width: "24px", height: "24px", background: "rgba(255, 87, 34, 0.2)", color: "#ffccbc" }}>
+                                    <i className="bi bi-chat-left-dots-fill" style={{ fontSize: "0.7rem" }}></i>
+                                  </div>
+                                  Describe your schedule
+                                </label>
+                                <div className="d-flex flex-column gap-3">
+                                  <textarea 
+                                    className="form-control premium-input shadow-inner flex-grow-1" 
+                                    rows={2}
+                                    placeholder="e.g., Every weekday at 5pm..." 
+                                    value={aiPrompt}
+                                    onChange={(e) => setAiPrompt(e.target.value)}
+                                    style={{ 
+                                      background: "rgba(0,0,0,0.2)", 
+                                      border: "1px solid rgba(255, 87, 34, 0.4)",
+                                      color: "white"
+                                    }}
+                                  />
+                                  <motion.button 
+                                    whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+                                    type="button" 
+                                    className="btn text-white fw-bold shadow-sm px-4 py-2 d-flex align-items-center justify-content-center"
+                                    style={{ 
+                                      background: "linear-gradient(135deg, #ff5722 0%, #ff8a65 100%)",
+                                      border: "none",
+                                      boxShadow: "0 4px 15px rgba(255, 87, 34, 0.4), inset 0 1px 1px rgba(255,255,255,0.2)",
+                                      whiteSpace: "nowrap"
+                                    }}
+                                    onClick={handleGenerateCron}
+                                    disabled={generatingCron || !aiPrompt}
+                                  >
+                                    {generatingCron ? (
+                                      <><span className="spinner-border spinner-border-sm me-2"></span> Generating...</>
+                                    ) : (
+                                      <><i className="bi bi-magic me-2"></i> Generate Cron</>
+                                    )}
+                                  </motion.button>
+                                </div>
+                                <div className="mt-3 text-white-50 d-flex align-items-center gap-2" style={{ fontSize: "0.85rem" }}>
+                                  <i className="bi bi-info-circle-fill" style={{ color: "var(--theme-accent)" }}></i>
+                                  <span>AI will overwrite any manually entered cron above.</span>
+                                </div>
+                              </div>
+                            </motion.div>
+                          ) : (
+                            <input 
+                              type="text" 
+                              className="form-control premium-input" 
+                              placeholder="* * * * *" 
+                              required={formData.frequency === 'cron'}
+                              value={formData.cron_expression}
+                              onChange={(e) => setFormData({...formData, cron_expression: e.target.value})}
+                            />
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <label className="premium-label d-flex align-items-center gap-2 mb-2">
+                            <i className="bi bi-alarm"></i> TIME
+                          </label>
+                          <input 
+                            type="time" 
+                            className="form-control premium-input" 
+                            required 
+                            value={formData.time_of_day}
+                            onChange={(e) => setFormData({...formData, time_of_day: e.target.value})}
+                          />
+                        </>
+                      )}
                     </div>
                     <div className="col-12 col-md-4">
                       <label className="premium-label d-flex align-items-center gap-2 mb-2">

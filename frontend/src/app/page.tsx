@@ -17,7 +17,9 @@ export default function LandingPage() {
         color: "white",
         fontFamily: "'Inter', sans-serif",
         paddingBottom: "1rem",
-        overflowX: "hidden"
+        overflowX: "hidden",
+        position: "relative",
+        maxWidth: "100vw"
       }}
     >
       <div

@@ -7,6 +7,7 @@ class DataSource(models.Model):
     connection_type = models.CharField(max_length=50)
     endpoint = models.CharField(max_length=500)
     auth_token = EncryptedCharField(max_length=255, blank=True, null=True)
+    config = models.JSONField(default=dict, blank=True, null=True)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     def __str__(self):
@@ -33,7 +34,8 @@ class ReportTemplate(models.Model):
 class Schedule(models.Model):
     name = models.CharField(max_length=255)
     frequency = models.CharField(max_length=50)
-    time_of_day = models.TimeField()
+    time_of_day = models.TimeField(null=True, blank=True)
+    cron_expression = models.CharField(max_length=100, null=True, blank=True)
     timezone = models.CharField(max_length=50, default='UTC')
     recipients = models.TextField(help_text="Comma separated email addresses")
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
@@ -54,7 +56,7 @@ class Job(models.Model):
         return self.name
 
 class ExecutionLog(models.Model):
-    job = models.ForeignKey(Job, on_delete=models.SET_NULL, null=True, blank=True, related_name='execution_logs')
+    job = models.ForeignKey(Job, on_delete=models.CASCADE, null=True, blank=True, related_name='execution_logs')
     job_name_snapshot = models.CharField(max_length=255, blank=True, null=True, help_text="Preserves the job name if the job is deleted")
     status = models.CharField(max_length=20, choices=(('success', 'Success'), ('failed', 'Failed')))
     error_message = models.TextField(blank=True, null=True)
@@ -66,5 +68,16 @@ class ExecutionLog(models.Model):
     executed_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        name = self.job.name if self.job else self.job_name_snapshot
-        return f"{name} - {self.status} at {self.executed_at}"
+        return f"{self.job.name if self.job else self.job_name_snapshot} - {self.status} at {self.executed_at}"
+
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
+@receiver(post_delete, sender=Job)
+def delete_apscheduler_job(sender, instance, **kwargs):
+    try:
+        from django_apscheduler.models import DjangoJob
+        job_id_str = f"job_{instance.id}"
+        DjangoJob.objects.filter(id=job_id_str).delete()
+    except Exception:
+        pass

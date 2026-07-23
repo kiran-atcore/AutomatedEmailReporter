@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import LogoName from './LogoName';
 import api from '@/services/axios';
+import { useAlert } from '@/components/AlertModal';
 
 interface SidebarProps {
   isMobileOpen: boolean;
@@ -22,6 +23,30 @@ const navLinks = [
 export default function Sidebar({ isMobileOpen, setIsMobileOpen, onLogout }: SidebarProps) {
   const pathname = usePathname();
   const [userData, setUserData] = useState<{ first_name?: string; username?: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { showConfirm } = useAlert();
+
+  const handleDeleteAccount = async () => {
+    const confirmed = await showConfirm("Are you absolutely sure you want to delete your account? This action cannot be undone and all your data will be permanently lost.", "Delete Account");
+    if (confirmed) {
+      setIsDeleting(true);
+      try {
+        await api.delete('/auth/me/');
+        onLogout(); // Clears local storage and redirects to login
+      } catch (err) {
+        console.error("Failed to delete account", err);
+        alert("Failed to delete account. Please try again.");
+        setIsDeleting(false);
+      }
+    }
+  };
+  
+  const handleLogoutClick = async () => {
+    const confirmed = await showConfirm("Are you sure you want to securely logout?", "Logout");
+    if (confirmed) {
+      onLogout();
+    }
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -47,7 +72,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, onLogout }: Sid
     return () => window.removeEventListener("resize", handleResize);
   }, [isMobileOpen, setIsMobileOpen]);
 
-  const SidebarContent = () => (
+  const renderSidebarContent = () => (
     <div className="d-flex flex-column h-100 w-100 position-relative">
       {/* Stylish Close Button for Mobile - Absolutely positioned to top right */}
       <button
@@ -156,28 +181,57 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, onLogout }: Sid
         })}
       </div>
 
-      <div className="p-4 mt-auto">
+      <div className="p-4 mt-auto d-flex flex-row gap-2">
         <motion.button
-          onClick={onLogout}
+          onClick={handleLogoutClick}
           whileHover={{
             scale: 1.05,
             boxShadow: "0 0 20px rgba(220,53,69,0.5)",
-            background: "linear-gradient(90deg, #dc3545 0%, #ff4d4d 100%)",
+            backgroundColor: "#dc3545",
             color: "#ffffff",
             border: "1px solid rgba(255,255,255,0.2)"
           }}
           whileTap={{ scale: 0.95 }}
-          className="btn w-100 rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-2 shadow-sm"
+          className="btn flex-fill rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-1 shadow-sm px-2"
           style={{
             background: "rgba(220,53,69,0.08)",
             color: "#dc3545",
             border: "1px solid rgba(220,53,69,0.3)",
             backdropFilter: "blur(4px)",
-            transition: "all 0.3s ease"
+            transition: "all 0.3s ease",
+            fontSize: "0.8rem"
           }}
         >
-          <i className="bi bi-box-arrow-right fs-5"></i>
-          <span style={{ letterSpacing: "1px" }}>LOGOUT</span>
+          <i className="bi bi-box-arrow-right"></i>
+          <span style={{ letterSpacing: "0.5px" }}>LOGOUT</span>
+        </motion.button>
+
+        <motion.button
+          onClick={handleDeleteAccount}
+          disabled={isDeleting}
+          whileHover={{
+            scale: 1.05,
+            boxShadow: "0 0 15px rgba(255, 77, 77, 0.4)",
+            backgroundColor: "rgba(255, 77, 77, 0.15)",
+            color: "#ff4d4d",
+            border: "1px solid rgba(255, 77, 77, 0.4)"
+          }}
+          whileTap={{ scale: 0.95 }}
+          className="btn flex-fill rounded-pill py-2 fw-bold d-flex align-items-center justify-content-center gap-1 px-2"
+          style={{
+            backgroundColor: "transparent",
+            color: "rgba(255,255,255,0.4)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            transition: "all 0.3s ease",
+            fontSize: "0.8rem"
+          }}
+        >
+          {isDeleting ? (
+            <span className="spinner-border spinner-border-sm"></span>
+          ) : (
+            <i className="bi bi-trash3"></i>
+          )}
+          <span style={{ letterSpacing: "0.5px" }}>{isDeleting ? "DELETING..." : "DELETE"}</span>
         </motion.button>
       </div>
     </div>
@@ -190,7 +244,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, onLogout }: Sid
         className="d-none d-lg-block h-100 position-fixed top-0 start-0 z-1"
         style={{ width: "260px", background: "var(--theme-bg-card)", borderRight: "1px solid var(--theme-border)" }}
       >
-        <SidebarContent />
+        {renderSidebarContent()}
       </div>
 
       {/* Mobile Drawer Overlay */}
@@ -212,7 +266,7 @@ export default function Sidebar({ isMobileOpen, setIsMobileOpen, onLogout }: Sid
               className="position-fixed top-0 start-0 h-100 shadow-lg z-3 d-lg-none"
               style={{ width: "280px", background: "var(--theme-bg-card)", borderRight: "1px solid var(--theme-border)" }}
             >
-              <SidebarContent />
+              {renderSidebarContent()}
             </motion.div>
           </>
         )}
