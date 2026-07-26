@@ -13,6 +13,7 @@ export default function NewSourcePage() {
   const [aiMode, setAiMode] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [generatingSql, setGeneratingSql] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
   const { showAlert } = useAlert();
 
   const [formData, setFormData] = useState({
@@ -78,6 +79,20 @@ export default function NewSourcePage() {
       console.error("Failed to create source", err);
       showAlert("Failed to save data source.", "Error");
       setLoading(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    try {
+      await api.post(`/reports/datasources/test_connection/`, formData);
+      showAlert("Connection successful!", "Success");
+    } catch (err: any) {
+      console.error(err);
+      const errorMsg = err.response?.data?.message || "Invalid Endpoint or Authentication.";
+      showAlert(`Connection failed. ${errorMsg}`, "Error");
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -349,22 +364,36 @@ export default function NewSourcePage() {
                      </>
                   ) : null}
 
-                  <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", delay: 0.4 } } }} className="d-flex flex-column flex-md-row justify-content-md-end gap-3 pt-4 border-top border-secondary border-opacity-25">
-                    <div className="btn-responsive-wrap">
-                      <Link href="/DataSources" className="btn btn-responsive premium-cancel-btn px-4 py-3 text-decoration-none shadow-sm">
+                  <motion.div variants={{ hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", delay: 0.4 } } }} className="row g-3 pt-4 border-top border-secondary border-opacity-25 mt-2 justify-content-end">
+                    <div className="col-12 col-md-4 col-lg-3">
+                      <Link href="/DataSources" className="btn w-100 premium-cancel-btn px-4 py-3 text-decoration-none shadow-sm h-100">
                         Cancel
                       </Link>
                     </div>
-                    <div className="btn-responsive-wrap">
+                    <div className="col-12 col-md-4 col-lg-4">
+                      <button 
+                        type="button" 
+                        className="btn w-100 premium-test-btn px-4 py-3 shadow-sm gap-2 d-flex align-items-center justify-content-center h-100"
+                        onClick={handleTestConnection}
+                        disabled={testingConnection || loading}
+                      >
+                        {testingConnection ? (
+                           <><span className="spinner-border spinner-border-sm"></span> Testing...</>
+                        ) : (
+                           <><i className="bi bi-lightning-charge fs-5"></i> Test Connection</>
+                        )}
+                      </button>
+                    </div>
+                    <div className="col-12 col-md-4 col-lg-4">
                       <button 
                         type="submit" 
-                        className="btn btn-responsive premium-submit-btn px-5 py-3 shadow gap-3"
+                        className="btn w-100 premium-submit-btn px-4 py-3 shadow gap-2 d-flex align-items-center justify-content-center h-100"
                         disabled={loading}
                       >
                         {loading ? (
-                           <><span className="spinner-border spinner-border-sm"></span> Connecting...</>
+                           <><span className="spinner-border spinner-border-sm"></span> Saving...</>
                         ) : (
-                           <><i className="bi bi-check2-circle fs-5"></i> Test & Save Connection</>
+                           <><i className="bi bi-check2-circle fs-5"></i> Save Connection</>
                         )}
                       </button>
                     </div>
