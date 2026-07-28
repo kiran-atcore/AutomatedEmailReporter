@@ -53,23 +53,29 @@ export default function SchedulerListCard({ schedule, onDelete, variants }: Sche
             </div>
           </div>
           <div>
-            <div style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1px", color: "rgba(255,255,255,0.4)" }}>Frequency</div>
-            <div className="text-white fw-bold text-capitalize">{schedule.frequency}</div>
+            <div style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1px", color: "rgba(255,255,255,0.4)" }}>
+              {schedule.frequency === 'cron' ? 'Cron Expr' : 'Frequency'}
+            </div>
+            <div className={`text-white fw-bold ${schedule.frequency === 'cron' ? 'font-monospace fs-6' : 'text-capitalize'}`}>
+              {schedule.frequency === 'cron' ? schedule.cron_expression : schedule.frequency}
+            </div>
           </div>
         </motion.div>
 
-        <motion.div variants={{ hover: { y: -3 } }} transition={{ delay: 0.05 }} className="d-flex align-items-center gap-3">
-          <div className="position-relative d-flex align-items-center justify-content-center" style={{ width: "48px", height: "48px" }}>
-            <div className="position-absolute w-100 h-100 rounded-circle" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}></div>
-            <div className="d-flex align-items-center justify-content-center rounded-circle z-1" style={{ width: "32px", height: "32px", background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 4px 10px rgba(0,0,0,0.3)" }}>
-               <i className="bi bi-clock text-white"></i>
+        {schedule.frequency !== 'cron' && (
+          <motion.div variants={{ hover: { y: -3 } }} transition={{ delay: 0.05 }} className="d-flex align-items-center gap-3">
+            <div className="position-relative d-flex align-items-center justify-content-center" style={{ width: "48px", height: "48px" }}>
+              <div className="position-absolute w-100 h-100 rounded-circle" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}></div>
+              <div className="d-flex align-items-center justify-content-center rounded-circle z-1" style={{ width: "32px", height: "32px", background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.02))", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 4px 10px rgba(0,0,0,0.3)" }}>
+                 <i className="bi bi-clock text-white"></i>
+              </div>
             </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1px", color: "rgba(255,255,255,0.4)" }}>Time</div>
-            <div className="text-white fw-bold">{schedule.time_of_day}</div>
-          </div>
-        </motion.div>
+            <div>
+              <div style={{ fontSize: "0.65rem", textTransform: "uppercase", letterSpacing: "1px", color: "rgba(255,255,255,0.4)" }}>Time</div>
+              <div className="text-white fw-bold">{schedule.time_of_day}</div>
+            </div>
+          </motion.div>
+        )}
 
         <motion.div variants={{ hover: { y: -3 } }} transition={{ delay: 0.1 }} className="d-flex align-items-center gap-3">
           <div className="position-relative d-flex align-items-center justify-content-center" style={{ width: "48px", height: "48px" }}>
