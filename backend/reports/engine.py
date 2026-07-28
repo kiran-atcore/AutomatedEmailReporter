@@ -381,7 +381,6 @@ def generate_pdf(job, data):
         ])
         
     # Prevent horizontal overflow by wrapping cells in Paragraphs and setting colWidths
-    from reportlab.lib.styles import ParagraphStyle
     num_cols = len(data[0]) if data else 1
     avail_width = 552.0 # 612 (letter width) - 30 (leftMargin) - 30 (rightMargin)
     col_widths = [avail_width / num_cols] * num_cols
