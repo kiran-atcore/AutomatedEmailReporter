@@ -20,9 +20,12 @@ from django.http import HttpResponse
 from django.conf import settings
 from django.conf.urls.static import static
 
+def health_check(request):
+    return HttpResponse("OK", status=200)
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('users.urls')),
     path('api/reports/', include('reports.urls')),
-    path('api/health/', lambda request: HttpResponse("OK", status=200)),
+    path('api/health/', health_check),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
