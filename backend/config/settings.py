@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'reports',
     'corsheaders',
     'django_apscheduler',
+    'anymail',
 ]
 
 MIDDLEWARE = [
@@ -158,19 +159,19 @@ SIMPLE_JWT = {
 
 import os
 
-# Email Configuration
-# Uses real SMTP if EMAIL_HOST is provided, otherwise falls back to local files for testing
-EMAIL_HOST = os.environ.get('EMAIL_HOST')
+# Email Configuration (Resend API)
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
 
-if EMAIL_HOST:
-    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-    EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
-    EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
-    EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+if RESEND_API_KEY:
+    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+    ANYMAIL = {
+        "RESEND_API_KEY": RESEND_API_KEY,
+    }
+    DEFAULT_FROM_EMAIL = "onboarding@resend.dev"
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
     EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
+    DEFAULT_FROM_EMAIL = "webmaster@localhost"
 
 # AP Scheduler Settings
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
