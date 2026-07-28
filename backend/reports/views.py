@@ -318,12 +318,15 @@ def analytics_data(request):
         count = next((item['count'] for item in daily_counts if item['date'] == d), 0)
         line_data.append({"date": date_str, "jobs": count})
         
-    # 3. Active Jobs per Data Source (Bar Chart)
+    # 3. Active Data Sources by Reports Sent (Bar Chart)
     sources = DataSource.objects.filter(owner=user)
     bar_data = []
     for source in sources:
-        job_count = Job.objects.filter(data_source=source, is_active=True).count()
-        bar_data.append({"name": source.name, "jobs": job_count})
+        report_count = analytics_qs.filter(job__data_source=source).count()
+        bar_data.append({"name": source.name, "reports": report_count})
+        
+    # Sort descending by report count and keep top 5
+    bar_data = sorted(bar_data, key=lambda x: x['reports'], reverse=True)[:5]
         
     return Response({
         "pieData": pie_data,

@@ -202,7 +202,7 @@ export default function AnalyticsPage() {
                     <XAxis type="number" allowDecimals={false} stroke="#6c757d" tick={{ fill: '#6c757d', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} />
                     <YAxis dataKey="name" type="category" width={80} stroke="#6c757d" tick={{ fill: '#e4e4e7', fontSize: 11, fontWeight: '600' }} axisLine={false} tickLine={false} />
                     <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(15,15,15,0.95)', backdropFilter: 'blur(10px)', color: 'white', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }} itemStyle={{ color: 'var(--theme-accent)', fontWeight: 'bold' }} />
-                    <Bar dataKey="jobs" fill="var(--theme-accent)" radius={[0, 8, 8, 0]} barSize={24} activeBar={{ fill: '#ff8a65', stroke: 'rgba(255,255,255,0.5)', strokeWidth: 1 }} />
+                    <Bar dataKey="reports" fill="var(--theme-accent)" radius={[0, 8, 8, 0]} barSize={24} activeBar={{ fill: '#ff8a65', stroke: 'rgba(255,255,255,0.5)', strokeWidth: 1 }} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
