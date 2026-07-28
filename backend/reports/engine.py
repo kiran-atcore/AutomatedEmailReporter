@@ -370,20 +370,50 @@ def generate_pdf(job, data):
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor(branding_color)),
             ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0,0), (-1,0), 12),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('BOTTOMPADDING', (0,0), (-1,0), 12),
             ('BACKGROUND', (0,1), (-1,-1), colors.HexColor('#f3f4f6')),
             ('TEXTCOLOR', (0,1), (-1,-1), colors.black),
             ('ALIGN', (0,1), (-1,-1), 'CENTER'),
-            ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-            ('FONTSIZE', (0,1), (-1,-1), 10),
             ('TOPPADDING', (0,1), (-1,-1), 6),
             ('BOTTOMPADDING', (0,1), (-1,-1), 6),
             ('GRID', (0,0), (-1,-1), 1, colors.HexColor('#dddddd'))
         ])
         
-    table = Table(data)
+    # Prevent horizontal overflow by wrapping cells in Paragraphs and setting colWidths
+    from reportlab.lib.styles import ParagraphStyle
+    num_cols = len(data[0]) if data else 1
+    avail_width = 552.0 # 612 (letter width) - 30 (leftMargin) - 30 (rightMargin)
+    col_widths = [avail_width / num_cols] * num_cols
+
+    wrapped_data = []
+    for r_idx, row in enumerate(data):
+        wrapped_row = []
+        for c_idx, cell in enumerate(row):
+            # Escape HTML characters so ReportLab Paragraph doesn't crash on < or &
+            cell_str = str(cell).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            
+            # Match Paragraph styling to the TableStyle
+            style_kwargs = {
+                'name': f'Cell_{r_idx}_{c_idx}',
+                'parent': normal_style,
+                'fontSize': 10,
+                'wordWrap': 'CJK', # allows wrapping on any character for long strings
+            }
+            if layout_type == 'Document':
+                style_kwargs['alignment'] = 0 # LEFT
+                if r_idx == 0:
+                    style_kwargs.update({'fontName': 'Helvetica-Bold', 'textColor': colors.black})
+            else: # Grid
+                style_kwargs['alignment'] = 1 # CENTER
+                if r_idx == 0:
+                    style_kwargs.update({'fontName': 'Helvetica-Bold', 'textColor': colors.whitesmoke, 'fontSize': 12})
+            
+            p_style = ParagraphStyle(**style_kwargs)
+            wrapped_row.append(Paragraph(cell_str, p_style))
+        wrapped_data.append(wrapped_row)
+        
+    table = Table(wrapped_data, colWidths=col_widths)
     table.setStyle(table_style)
     elements.append(table)
     
@@ -420,7 +450,8 @@ def send_report_email(job, pdf_content):
     branding_color = job.template.branding_color or '#1e3c72'
     logo_html = ""
     if job.template.branding_logo:
-        logo_html = '<img src="cid:branding_logo" style="max-height: 60px; margin-bottom: 10px;" /><br/>'
+        # Link directly to the cloud URL! Brevo supports this beautifully.
+        logo_html = f'<img src="{job.template.branding_logo.url}" style="max-height: 60px; margin-bottom: 10px;" /><br/>'
         
     css_styles = f"<style>\n{job.template.css_overrides}\n</style>" if getattr(job.template, 'css_overrides', None) else ""
     

@@ -11,6 +11,9 @@ from reports.engine import execute_job
 logger = logging.getLogger(__name__)
 
 # Must be module-level so APScheduler can serialize it
+def sync_db_jobs(scheduler):
+    register_jobs(scheduler)
+
 def register_jobs(scheduler):
     # Fetch active jobs
     active_jobs = Job.objects.filter(is_active=True)
@@ -70,11 +73,19 @@ class Command(BaseCommand):
         # Register jobs initially
         register_jobs(scheduler)
         
-        # We can also add a cron job to automatically reload jobs from the DB every 5 minutes
-        # Note: APScheduler requires module-level functions for serialization
-        # Instead of dynamically reloading via the DB store, it's safer to restart the worker in prod.
-        # But for development, we won't add the auto-reloader to avoid serialization issues, 
-        # or we just rely on the manual start.
+        # Add an internal polling job using a MemoryJobStore to auto-sync DB jobs every 30 seconds.
+        # This allows jobs created in the web UI to be automatically picked up by this worker!
+        from apscheduler.jobstores.memory import MemoryJobStore
+        scheduler.add_jobstore(MemoryJobStore(), "memory")
+        scheduler.add_job(
+            sync_db_jobs,
+            'interval',
+            seconds=30,
+            args=[scheduler],
+            id='internal_db_sync',
+            jobstore='memory',
+            replace_existing=True
+        )
 
         try:
             self.stdout.write(self.style.SUCCESS("Starting scheduler... Press Ctrl+C to exit"))
