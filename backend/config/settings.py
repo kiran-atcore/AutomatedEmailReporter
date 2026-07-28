@@ -159,15 +159,15 @@ SIMPLE_JWT = {
 
 import os
 
-# Email Configuration (Resend API)
-RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+# Email Configuration (Brevo API)
+BREVO_API_KEY = os.environ.get('BREVO_API_KEY')
 
-if RESEND_API_KEY:
-    EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+if BREVO_API_KEY:
+    EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
     ANYMAIL = {
-        "RESEND_API_KEY": RESEND_API_KEY,
+        "BREVO_API_KEY": BREVO_API_KEY,
     }
-    DEFAULT_FROM_EMAIL = "onboarding@resend.dev"
+    DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'your-verified-brevo-email@example.com')
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.filebased.EmailBackend'
     EMAIL_FILE_PATH = BASE_DIR / 'sent_emails'
