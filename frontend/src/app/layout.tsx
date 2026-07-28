@@ -20,7 +20,7 @@ const righteous = Righteous({
 });
 
 export const metadata: Metadata = {
-  title: "AutoReporter",
+  title: "AutoRepoter",
   description: "Automated Email Reporter",
 };
 
