@@ -40,6 +40,12 @@ class SupabaseStorage(Storage):
             raise e
         return name
 
+    def delete(self, name):
+        try:
+            self.supabase.storage.from_(self.bucket_name).remove([name])
+        except Exception as e:
+            print(f"Failed to delete {name} from Supabase: {e}")
+
     def exists(self, name):
         # We use upsert=true in _save, so we can always return False to tell Django to go ahead and save
         return False

@@ -149,8 +149,20 @@ export default function NewTemplatePage() {
                             onChange={handleLogoChange}
                           />
                           {logoPreview && (
-                            <div className="mt-3 text-center p-2 rounded-3" style={{ background: "rgba(0,0,0,0.3)", border: "1px dashed rgba(255,255,255,0.2)" }}>
+                            <div className="mt-3 text-center p-2 rounded-3 position-relative" style={{ background: "rgba(0,0,0,0.3)", border: "1px dashed rgba(255,255,255,0.2)" }}>
                               <img src={logoPreview} alt="Preview" style={{ maxHeight: "60px", maxWidth: "100%", objectFit: "contain" }} />
+                              <button 
+                                type="button" 
+                                className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle d-flex align-items-center justify-content-center" 
+                                style={{ width: "24px", height: "24px", padding: 0 }}
+                                onClick={() => {
+                                  setLogoFile(null);
+                                  setLogoPreview(null);
+                                }}
+                                title="Remove Logo"
+                              >
+                                <i className="bi bi-x"></i>
+                              </button>
                             </div>
                           )}
                         </div>
