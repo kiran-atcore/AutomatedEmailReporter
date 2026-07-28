@@ -136,6 +136,10 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Cloud Storage
+if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_KEY"):
+    DEFAULT_FILE_STORAGE = 'config.storage_backends.SupabaseStorage'
+
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True
 
