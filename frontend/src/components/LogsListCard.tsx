@@ -85,8 +85,9 @@ export default function LogsListCard({ logs, onClearAll, onDeleteLog, onRowClick
               onClick={() => onRowClick(log.id)}
               whileHover="hover"
               whileTap={{ scale: 0.98 }}
-              className="flex-shrink-0 py-2 px-3 rounded-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative overflow-hidden group mb-1"
+              className="flex-shrink-0 py-2 px-3 mx-auto rounded-4 d-flex flex-column flex-md-row align-items-md-center justify-content-between position-relative overflow-hidden group mb-1"
               style={{
+                width: "96%",
                 cursor: "pointer",
                 border: "1px solid rgba(255,255,255,0.05)",
                 background: "rgba(21, 21, 21, 0.4)",
