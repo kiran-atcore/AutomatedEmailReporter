@@ -446,26 +446,19 @@ def send_report_email(job, pdf_content):
     </html>
     """
         
+    from django.conf import settings
     email = EmailMultiAlternatives(
         subject=subject,
         body=text_body,
-        from_email='noreply@autoreporter.com',
+        from_email=settings.DEFAULT_FROM_EMAIL,
         to=recipient_list
     )
     email.attach_alternative(branded_html, "text/html")
     email.attach(f"{job.name.replace(' ', '_')}_{timezone.now().strftime('%Y%m%d')}.pdf", pdf_content, 'application/pdf')
     
-    # Attach the inline logo if it exists
-    if job.template.branding_logo:
-        from email.mime.image import MIMEImage
-        try:
-            with job.template.branding_logo.open('rb') as f:
-                img = MIMEImage(f.read())
-                img.add_header('Content-ID', '<branding_logo>')
-                img.add_header('Content-Disposition', 'inline')
-                email.attach(img)
-        except Exception as e:
-            pass # Non-fatal
+    # Brevo API does not support inline attachments (Anymail raises AnymailUnsupportedFeature).
+    # Since the logo is already beautifully embedded at the top of the PDF itself,
+    # we can safely skip the inline email body attachment.
             
     email.send()
 
