@@ -138,7 +138,14 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Cloud Storage
 if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_KEY"):
-    DEFAULT_FILE_STORAGE = 'config.storage_backends.SupabaseStorage'
+    STORAGES = {
+        "default": {
+            "BACKEND": "config.storage_backends.SupabaseStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 # CORS Configuration
 CORS_ALLOW_ALL_ORIGINS = True
