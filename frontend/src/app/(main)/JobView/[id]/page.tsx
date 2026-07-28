@@ -234,8 +234,8 @@ export default function JobView() {
                       <div className="fw-semibold text-white fs-6 text-capitalize">{job.schedule_details?.frequency}</div>
                     </div>
                     <div>
-                      <div className="theme-text-muted small text-uppercase fw-bold mb-1" style={{ fontSize: "0.65rem", letterSpacing: "1px" }}>Time of Day</div>
-                      <div className="fw-semibold text-white fs-6">{job.schedule_details?.time_of_day}</div>
+                      <div className="theme-text-muted small text-uppercase fw-bold mb-1" style={{ fontSize: "0.65rem", letterSpacing: "1px" }}>{job.schedule_details?.frequency === 'cron' ? 'Cron Expression' : 'Time of Day'}</div>
+                      <div className="fw-semibold text-white fs-6">{job.schedule_details?.frequency === 'cron' ? job.schedule_details?.cron_expression : job.schedule_details?.time_of_day}</div>
                     </div>
                     <div>
                       <div className="theme-text-muted small text-uppercase fw-bold mb-1" style={{ fontSize: "0.65rem", letterSpacing: "1px" }}>Recipients</div>
