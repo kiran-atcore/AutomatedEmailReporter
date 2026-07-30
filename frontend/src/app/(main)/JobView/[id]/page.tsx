@@ -81,12 +81,18 @@ export default function JobView() {
               </h2>
             </div>
           </div>
-          <motion.div whileHover={!running ? { scale: 1.05 } : {}} whileTap={!running ? { scale: 0.95 } : {}}>
+          <motion.div whileHover={(!running && job.is_active) ? { scale: 1.05 } : {}} whileTap={(!running && job.is_active) ? { scale: 0.95 } : {}}>
             <button 
               className="btn text-white fw-bold rounded-pill px-5 py-3 shadow d-flex align-items-center gap-2"
               onClick={handleRunNow}
-              disabled={running}
-              style={{ background: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", boxShadow: "0 10px 25px rgba(79, 172, 254, 0.4)", border: "none" }}
+              disabled={running || !job.is_active}
+              style={{ 
+                background: (!job.is_active) ? "rgba(255, 255, 255, 0.1)" : "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)", 
+                boxShadow: (!job.is_active) ? "none" : "0 10px 25px rgba(79, 172, 254, 0.4)", 
+                border: "none",
+                cursor: (!job.is_active) ? "not-allowed" : "pointer"
+              }}
+              title={!job.is_active ? "Activate the job to run this workflow" : ""}
             >
               {running ? (
                 <>
