@@ -240,15 +240,20 @@ def generate_chart(data, chart_type):
 def generate_ai_summary(data, custom_prompt):
     """
     Calls the Groq API to generate an executive summary based on the data.
+    Returns formatted summary string on success, or None on failure.
     """
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        return "AI Summary is enabled, but GROQ_API_KEY is not configured in the environment."
+        print("Groq API warning: AI Summary is enabled, but GROQ_API_KEY is not configured in the environment.")
+        return None
         
     try:
         client = Groq(api_key=api_key)
         
         # Convert data (2D array) into a readable JSON string
+        if not data or len(data) <= 1:
+            return None
+            
         headers = data[0]
         rows = [dict(zip(headers, row)) for row in data[1:]]
         data_json = json.dumps(rows, indent=2)
@@ -262,16 +267,44 @@ def generate_ai_summary(data, custom_prompt):
         if custom_prompt:
             system_prompt += f"\n\nAdditional Instructions from user: {custom_prompt}"
             
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Here is the raw data:\n\n{data_json}"}
-            ],
-            model="llama-3.1-8b-instant",
-            temperature=0.5,
-            max_tokens=256
+        preferred_model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+        models_to_try = [preferred_model]
+        if preferred_model != "openai/gpt-oss-20b":
+            models_to_try.append("openai/gpt-oss-20b")
+
+        summary_text = None
+        for model in models_to_try:
+            try:
+                chat_completion = client.chat.completions.create(
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": f"Here is the raw data:\n\n{data_json}"}
+                    ],
+                    model=model,
+                    temperature=0.5,
+                    max_tokens=512
+                )
+                candidate = chat_completion.choices[0].message.content
+                if candidate and candidate.strip():
+                    summary_text = candidate.strip()
+                    break
+            except Exception as model_err:
+                print(f"Groq API error with model '{model}': {str(model_err)}")
+                continue
+
+        if not summary_text:
+            return None
+        
+        # Normalize unicode quotes and dashes for standard ReportLab fonts
+        summary_text = (
+            summary_text.replace('\u2011', '-')
+            .replace('\u2013', '-')
+            .replace('\u2014', '--')
+            .replace('\u2018', "'")
+            .replace('\u2019', "'")
+            .replace('\u201c', '"')
+            .replace('\u201d', '"')
         )
-        summary_text = chat_completion.choices[0].message.content
         
         # Cleanup: convert any accidental markdown to reportlab-compatible HTML
         import re
@@ -281,8 +314,8 @@ def generate_ai_summary(data, custom_prompt):
         
         return summary_text
     except Exception as e:
-        print(f"Groq API Error: {str(e)}")
-        return f"AI Summary failed to generate: {str(e)}"
+        print(f"Groq API Error in generate_ai_summary: {str(e)}")
+        return None
 
 def generate_pdf(job, data):
     buffer = io.BytesIO()
@@ -326,14 +359,15 @@ def generate_pdf(job, data):
     elements.append(Paragraph(f"Generated on: {timezone.now().strftime('%Y-%m-%d %H:%M:%S UTC')}", normal_style))
     elements.append(Spacer(1, 24))
     
-    # AI Summary Injection
+    # AI Summary Injection (hidden completely if generation fails or returns empty)
     if getattr(job.template, 'enable_ai_summary', False):
-        ai_style = ParagraphStyle('AISummary', parent=styles['Normal'], alignment=0, spaceBefore=12, spaceAfter=24, fontSize=11, leading=16, textColor=colors.HexColor('#1f2937'), backColor=colors.HexColor('#f8f9fa'), borderPadding=10, borderRadius=4)
-        ai_header = ParagraphStyle('AIHeader', parent=styles['Heading3'], textColor=colors.HexColor('#8b5cf6'))
-        
-        elements.append(Paragraph("✨ AI Executive Summary", ai_header))
         summary_text = generate_ai_summary(data, job.template.ai_prompt)
-        elements.append(Paragraph(summary_text, ai_style))
+        if summary_text:
+            ai_style = ParagraphStyle('AISummary', parent=styles['Normal'], alignment=0, spaceBefore=12, spaceAfter=24, fontSize=11, leading=16, textColor=colors.HexColor('#1f2937'), backColor=colors.HexColor('#f8f9fa'), borderPadding=10, borderRadius=4)
+            ai_header = ParagraphStyle('AIHeader', parent=styles['Heading3'], textColor=colors.HexColor('#8b5cf6'))
+            
+            elements.append(Paragraph("✨ AI Executive Summary", ai_header))
+            elements.append(Paragraph(summary_text, ai_style))
     
     # Chart Generation
     if getattr(job.template, 'has_chart', False):

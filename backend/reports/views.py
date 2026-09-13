@@ -84,12 +84,13 @@ class DataSourceViewSet(viewsets.ModelViewSet):
             
             user_message = f"Schema:\n{schema_text}\n\nRequest: {prompt}\n\nSQL Query:"
             
+            model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
             chat_completion = client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message}
                 ],
-                model="llama-3.1-8b-instant",
+                model=model,
                 temperature=0.1,
                 max_tokens=500
             )
@@ -152,12 +153,13 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 "Do not include any explanations, backticks, or extra text."
             )
             
+            model = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
             chat_completion = client.chat.completions.create(
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt}
                 ],
-                model="llama-3.1-8b-instant",
+                model=model,
                 temperature=0.1,
                 max_tokens=20
             )
