@@ -19,6 +19,7 @@ from io import StringIO
 from groq import Groq
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
+from apscheduler.triggers.cron import CronTrigger
 
 def fetch_data(data_source):
     """
@@ -572,3 +573,58 @@ def execute_job(job_id):
             )
         except:
             pass
+
+def get_job_trigger(job):
+    """Reconstructs the APScheduler CronTrigger for a job."""
+    schedule = job.schedule
+    tz = schedule.timezone if hasattr(schedule, 'timezone') and schedule.timezone else 'UTC'
+    
+    if schedule.frequency == 'cron':
+        if not schedule.cron_expression:
+            return None
+        return CronTrigger.from_crontab(schedule.cron_expression, timezone=tz)
+    else:
+        if not schedule.time_of_day:
+            return None
+        hour = schedule.time_of_day.hour
+        minute = schedule.time_of_day.minute
+        
+        if schedule.frequency == 'hourly':
+            return CronTrigger(minute=minute, timezone=tz)
+        elif schedule.frequency == 'daily':
+            return CronTrigger(hour=hour, minute=minute, timezone=tz)
+        elif schedule.frequency == 'weekly':
+            return CronTrigger(day_of_week='mon', hour=hour, minute=minute, timezone=tz)
+        return CronTrigger(hour=hour, minute=minute, timezone=tz)
+
+def check_and_execute_due_jobs():
+    """
+    Checks all active jobs. If a job's schedule was due between its last
+    successful run and now, it executes the job immediately.
+    """
+    from .models import Job
+    now = timezone.now()
+    active_jobs = Job.objects.filter(is_active=True).select_related('schedule')
+    executed = []
+
+    for job in active_jobs:
+        trigger = get_job_trigger(job)
+        if not trigger:
+            continue
+
+        # Get last successful run (or fallback to job creation time)
+        last_log = ExecutionLog.objects.filter(job=job, status='success').order_by('-executed_at').first()
+        reference_time = last_log.executed_at if last_log else job.created_at
+
+        # Calculate next fire time after the reference time
+        next_fire = trigger.get_next_fire_time(reference_time, now)
+
+        # If the fire time has already passed (<= now), the job is due!
+        if next_fire and next_fire <= now:
+            try:
+                execute_job(job.id)
+                executed.append(job.name)
+            except Exception as e:
+                print(f"Error executing due job {job.name}: {e}")
+
+    return executed

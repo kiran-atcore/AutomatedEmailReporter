@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     DataSourceViewSet, ReportTemplateViewSet, ScheduleViewSet,
     JobViewSet, ExecutionLogViewSet, dashboard_metrics, mock_data_view,
-    analytics_data, clear_analytics
+    analytics_data, clear_analytics, trigger_due_jobs_webhook
 )
 
 router = DefaultRouter()
@@ -19,4 +19,5 @@ urlpatterns = [
     path('analytics/', analytics_data, name='analytics-data'),
     path('analytics/clear/', clear_analytics, name='clear-analytics'),
     path('mock-data/', mock_data_view, name='mock-data'),
+    path('trigger-due/', trigger_due_jobs_webhook, name='trigger-due-jobs'),
 ]

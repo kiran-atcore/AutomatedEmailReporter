@@ -74,11 +74,21 @@ export default function NewSchedulePage() {
       showAlert("Please add at least one recipient email.", "Validation Error");
       return;
     }
-    if (formData.frequency === "cron" && !formData.cron_expression) {
-      showAlert("Please enter a custom cron expression.", "Validation Error");
-      return;
+    if (formData.frequency === "cron") {
+      if (!formData.cron_expression) {
+        showAlert("Please enter a custom cron expression.", "Validation Error");
+        return;
+      }
+      const cronParts = formData.cron_expression.trim().split(/\s+/);
+      if (cronParts.length >= 5) {
+        const minute = cronParts[0];
+        if (!/^\d+$/.test(minute) || parseInt(minute) < 0 || parseInt(minute) > 59) {
+          showAlert("Maximum frequency is hourly. The minute field must be a specific number (e.g., 0).", "Validation Error");
+          return;
+        }
+      }
     }
-    if (formData.frequency !== "cron" && !formData.time_of_day) {
+    if (formData.frequency !== "cron" && formData.frequency !== "hourly" && !formData.time_of_day) {
       showAlert("Please select a time of day.", "Validation Error");
       return;
     }
@@ -92,6 +102,9 @@ export default function NewSchedulePage() {
       // Clear irrelevant fields based on frequency
       if (payload.frequency === 'cron') {
         payload.time_of_day = null as any;
+      } else if (payload.frequency === 'hourly') {
+        payload.cron_expression = "";
+        payload.time_of_day = "00:00"; // Enforce top of the hour for hourly
       } else {
         payload.cron_expression = "";
       }
@@ -281,15 +294,35 @@ export default function NewSchedulePage() {
                               </div>
                             </motion.div>
                           ) : (
-                            <input 
-                              type="text" 
-                              className="form-control premium-input" 
-                              placeholder="* * * * *" 
-                              required={formData.frequency === 'cron'}
-                              value={formData.cron_expression}
-                              onChange={(e) => setFormData({...formData, cron_expression: e.target.value})}
-                            />
+                            <div className="d-flex flex-column gap-1">
+                              <input 
+                                type="text" 
+                                className="form-control premium-input" 
+                                placeholder="0 * * * *" 
+                                required={formData.frequency === 'cron'}
+                                value={formData.cron_expression}
+                                onChange={(e) => setFormData({...formData, cron_expression: e.target.value})}
+                              />
+                              <small className="text-white-50" style={{ fontSize: "0.75rem" }}>
+                                <i className="bi bi-info-circle"></i> Max frequency is hourly. Minute must be fixed (e.g. 0).
+                              </small>
+                            </div>
                           )}
+                        </>
+                      ) : formData.frequency === 'hourly' ? (
+                        <>
+                          <label className="premium-label d-flex align-items-center gap-2 mb-2">
+                            <i className="bi bi-alarm"></i> TIME
+                          </label>
+                          <input 
+                            type="time" 
+                            className="form-control premium-input text-white-50" 
+                            value="00:00"
+                            disabled
+                          />
+                          <small className="text-white-50 mt-1 d-block" style={{ fontSize: "0.75rem" }}>
+                            Runs at the top of every hour.
+                          </small>
                         </>
                       ) : (
                         <>

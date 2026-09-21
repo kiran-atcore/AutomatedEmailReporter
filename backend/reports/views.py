@@ -1,5 +1,5 @@
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import api_view, permission_classes, action
+from rest_framework.decorators import api_view, permission_classes, action, authentication_classes
 from rest_framework.response import Response
 from .models import DataSource, ReportTemplate, Schedule, Job, ExecutionLog
 from .serializers import (
@@ -149,7 +149,9 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             client = Groq(api_key=api_key)
             system_prompt = (
                 "You are an expert cron string generator. "
-                "Given a natural language request for a schedule, output ONLY the 5-part cron expression (e.g., '0 9 * * 1-5'). "
+                "The maximum allowed frequency is hourly. Sub-hourly intervals (like every 5 minutes) are strictly forbidden. "
+                "The minute field (first token) MUST ALWAYS be '0' (e.g., '0 9 * * 1-5' or '0 * * * *'). "
+                "Given a natural language request for a schedule, output ONLY the 5-part cron expression. "
                 "Do not include any explanations, backticks, or extra text."
             )
             
@@ -362,3 +364,21 @@ def mock_data_view(request):
         {"Metric": "Server Uptime", "Value": uptime, "Status": "Healthy"},
         {"Metric": "Open Support Tickets", "Value": str(tickets), "Status": "Warning" if tickets > 50 else "Good"},
     ])
+
+@api_view(['GET', 'POST'])
+@permission_classes([])
+@authentication_classes([])
+def trigger_due_jobs_webhook(request):
+    token = request.headers.get("X-CRON-KEY") or request.query_params.get("key")
+    expected_token = os.environ.get("CRON_SECRET_KEY")
+    
+    if not expected_token or token != expected_token:
+        return Response({"error": "Unauthorized"}, status=status.HTTP_403_FORBIDDEN)
+    
+    from .engine import check_and_execute_due_jobs
+    executed = check_and_execute_due_jobs()
+    return Response({
+        "status": "success",
+        "jobs_executed_count": len(executed),
+        "executed_jobs": executed
+    })
