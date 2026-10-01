@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import { motion } from "framer-motion";
@@ -178,7 +178,7 @@ export default function NewSchedulePage() {
                   </motion.div>
 
                   <motion.div variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0, transition: { type: "spring" } } }} className="row g-4 mb-4">
-                    <div className="col-12 col-md-4">
+                    <div className="col-12">
                       <label className="premium-label d-flex align-items-center gap-2 mb-2">
                         <i className="bi bi-arrow-repeat"></i> Frequency
                       </label>
@@ -196,7 +196,7 @@ export default function NewSchedulePage() {
                         <option value="cron" style={{ color: "black" }}>Custom Cron</option>
                       </select>
                     </div>
-                    <div className="col-12 col-md-4">
+                    <div className="col-12">
                       {formData.frequency === 'cron' ? (
                         <>
                           <div className="d-flex justify-content-between align-items-center mb-2">
@@ -339,7 +339,7 @@ export default function NewSchedulePage() {
                         </>
                       )}
                     </div>
-                    <div className="col-12 col-md-4">
+                    <div className="col-12">
                       <label className="premium-label d-flex align-items-center gap-2 mb-2">
                         <i className="bi bi-globe"></i> Timezone
                       </label>

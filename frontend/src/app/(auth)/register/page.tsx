@@ -117,7 +117,9 @@ export default function RegisterPage() {
       localStorage.setItem("refresh", response.data.refresh);
       router.push("/Dashboard");
     } catch (err: any) {
-      setError("Google sign up failed.");
+      console.error("Google sign up error:", err);
+      const msg = err.response?.data?.error || err.response?.data?.detail || (err.message === "Network Error" ? "Cannot connect to backend server (http://127.0.0.1:8000). Please ensure it is running." : "Google sign up failed.");
+      setError(msg);
     } finally {
       setLoading(false);
     }

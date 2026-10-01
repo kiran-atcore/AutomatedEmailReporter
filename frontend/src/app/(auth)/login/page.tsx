@@ -45,7 +45,9 @@ export default function LoginPage() {
       localStorage.setItem("refresh", response.data.refresh);
       router.push("/Dashboard");
     } catch (err: any) {
-      setError("Google sign in failed.");
+      console.error("Google sign in error:", err);
+      const msg = err.response?.data?.error || err.response?.data?.detail || (err.message === "Network Error" ? "Cannot connect to backend server (http://127.0.0.1:8000). Please ensure it is running." : "Google sign in failed.");
+      setError(msg);
     } finally {
       setLoading(false);
     }
